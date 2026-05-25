@@ -30,7 +30,9 @@
 ## 🚀 Quick Start
 
 ### 1. Generate an Immich API key
-Log into your core Immich instance, navigate to **Account Settings** ➔ **API Keys**, and generate a new key. *Note: A read-only key is perfectly sufficient.*
+Log into your core Immich instance, navigate to **Account Settings** ➔ **API Keys**, and generate a new key. 
+*Note: The only permissions needed are server.statistics and adminUser.read*
+
 ### 2. Configure Your `.env` File
 Create a `.env` file in your deployment directory to store your connection keys and database credentials safely:
 
