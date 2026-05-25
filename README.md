@@ -1,69 +1,59 @@
-# Immich Stats Dashboard
+<p align="center">
+  <img src="https://images.prodia.xyz/optimized/immich-stats-compressed.png" width="140" alt="Immich Stats Dashboard Logo">
+</p>
 
-A self-hosted, maintenance-free weekly upload stats dashboard for your Immich server.
+<h1 align="center">Immich Stats Dashboard</h1>
 
-## Features
+<p align="center">
+  A self-hosted, maintenance-free upload statistics dashboard for your Immich server.
+</p>
 
-- 📊 Daily bar chart of photo & video uploads across all users
-- 🏆 Leaderboard ranked by upload count
-- 👤 Per-user breakdown with mini sparkline chart
-- 🔄 Auto-refreshes every 5 minutes
-- 📅 Switch between 7 / 14 / 30 day windows
-- 🐋 Single Docker container, no database, no cron
+<p align="center">
+  <img src="https://img.shields.io/github/license/yannolerobot/Immich-Stats?style=flat-square&color=blue" alt="License">
+  <img src="https://img.shields.io/github/v/release/yannolerobot/Immich-Stats?style=flat-square&color=orange" alt="Latest Release">
+  <img src="https://img.shields.io/badge/Docker-Ready-blue?style=flat-square&logo=docker" alt="Docker Ready">
+</p>
 
 ---
 
-## Quick Start
+## ✨ Features
 
-### 1. Get your Immich API key
+* 📊 **Daily Activity:** Interactive bar charts tracking photo & video uploads across all users.
+* 🏆 **Leaderboards:** Friendly competition tracking ranking users by total upload counts.
+* 👤 **User Insights:** Individual per-user breakdowns complete with clean mini sparkline charts.
+* 🔄 **Real-Time Data:** Live API fetching with automatic data updates every 5 minutes.
+* 📅 **Flexible Windows:** Dynamically toggle and filter between 7, 14, or 30-day view ranges.
+* 🐋 **Ultra Lightweight:** Single Docker container. No internal databases, no cron jobs, zero overhead.
 
-In Immich → **Account Settings** → **API Keys** → create a new key.
-A read-only key is sufficient.
+---
 
-### 2. Edit `compose.yml`
+## 🚀 Quick Start
+
+### 1. Generate an Immich API key
+Log into your core Immich instance, navigate to **Account Settings** ➔ **API Keys**, and generate a new key. *Note: A read-only key is perfectly sufficient.*
+
+### 2. Configure `compose.yml`
+Create a `compose.yml` file and drop in the deployment configuration below:
 
 ```yaml
-environment:
-  IMMICH_URL: "http://immich-server:2283"  # or https://immich.yourdomain.tld
-  IMMICH_API_KEY: "paste_your_key_here"
-```
+version: "3.8"
 
-If Immich is on the same Docker network, uncomment the `networks:` block and set the network name to match (e.g. `immich_default`).
+services:
+  immich-stats:
+    image: ghcr.io/yannolerobot/immich-stats:latest
+    container_name: immich-stats
+    restart: unless-stopped
+    ports:
+      - "3456:3000"  # Map to any port you prefer on your host machine
+    environment:
+      IMMICH_URL: "http://immich-server:2283"  # Use internal container URL or [https://immich.yourdomain.tld](https://immich.yourdomain.tld)
+      IMMICH_API_KEY: "your_api_key_here"
+      PORT: "3000"
+    
+    # Optional: If Immich runs on a specific internal network, uncomment below to join it
+    # networks:
+    #   - immich_default
 
-### 3. Build and run
-
-```bash
-docker compose up -d --build
-```
-
-Dashboard is available at **http://your-server:3456**
-
----
-
-## Traefik / Reverse proxy
-
-The `compose.yml` already includes Traefik labels. Adjust the `Host()` rule and remove the `ports:` mapping if you're routing through Traefik:
-
-```yaml
-labels:
-  - "traefik.http.routers.immich-stats.rule=Host(`stats.yourdomain.tld`)"
-```
-
----
-
-## Environment variables
-
-| Variable         | Required | Default | Description                              |
-|-----------------|----------|---------|------------------------------------------|
-| `IMMICH_URL`    | ✅       | —       | Base URL of your Immich instance          |
-| `IMMICH_API_KEY`| ✅       | —       | Immich API key (read-only is fine)        |
-| `PORT`          | ❌       | `3000`  | Internal port the app listens on          |
-
----
-
-## Notes
-
-- Data is fetched live from the Immich API on each page load / refresh — no local storage.
-- The daily breakdown uses `fileCreatedAt` (the EXIF date) if available, falling back to `createdAt` (upload date).
-- Large libraries with many assets will take a few seconds on first load; subsequent loads are fast.
-- The container runs as the non-root `node` user.
+# networks:
+#   immich_default:
+#     external: true
