@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://images.prodia.xyz/optimized/immich-stats-compressed.png" width="140" alt="Immich Stats Dashboard Logo">
+  <img src="https://github.com/yannolerobot/Immich-Stats/blob/main/assets/immich-stats-s.png?raw=true" width="140" alt="Immich Stats Dashboard Logo">
 </p>
 
 <h1 align="center">Immich Stats Dashboard</h1>
