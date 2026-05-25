@@ -10,7 +10,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/github/license/yannolerobot/Immich-Stats?style=flat-square&color=blue" alt="License">
-  <img src="https://img.shields.io/github/v/release/yannolerobot/Immich-Stats?style=flat-square&color=orange" alt="Latest Release">
+  <!-- <img src="https://img.shields.io/github/v/release/yannolerobot/Immich-Stats?style=flat-square&color=orange" alt="Latest Release"> -->
   <img src="https://img.shields.io/badge/Docker-Ready-blue?style=flat-square&logo=docker" alt="Docker Ready">
 </p>
 
