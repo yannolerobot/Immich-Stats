@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/yannolerobot/Immich-Stats/blob/main/assets/immich-stats-s.png?raw=true" width="140" alt="Immich Stats Dashboard Logo">
+  <img src="./assets/immich-stats-s.png?raw=true" width="140" alt="Immich Stats Dashboard Logo">
 </p>
 
 <h1 align="center">Immich Stats Dashboard</h1>
@@ -12,6 +12,14 @@
   <img src="https://img.shields.io/github/license/yannolerobot/Immich-Stats?style=flat-square&color=blue" alt="License">
   <!-- <img src="https://img.shields.io/github/v/release/yannolerobot/Immich-Stats?style=flat-square&color=orange" alt="Latest Release"> -->
   <img src="https://img.shields.io/badge/Docker-Ready-blue?style=flat-square&logo=docker" alt="Docker Ready">
+</p>
+
+---
+
+## 📸 Preview
+
+<p align="center">
+  <img src="./assets/scrennshotpng" width="100%" alt="Immich Stats Dashboard Preview">
 </p>
 
 ---
