@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Immich Stats</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%230d0f12'/%3E%3Crect x='10' y='10' width='18' height='18' rx='3' fill='%23e8ff5a'/%3E%3Crect x='36' y='10' width='18' height='18' rx='3' fill='%235affda' opacity='0.9'/%3E%3Crect x='10' y='36' width='18' height='18' rx='3' fill='%23ff5a8a' opacity='0.9'/%3E%3Crect x='36' y='36' width='18' height='18' rx='3' fill='%23e8ff5a'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:       #0d0f12;
+      --surface:  #13161b;
+      --border:   #1e2229;
+      --accent:   #e8ff5a;
+      --accent2:  #5affda;
+      --accent3:  #ff5a8a;
+      --muted:    #4a5060;
+      --text:     #d8dce8;
+      --text-dim: #7a8090;
+      --radius:   6px;
+      --mono:     'Space Mono', monospace;
+      --sans:     'Syne', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── Noise texture overlay ─── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 999;
+      opacity: 0.5;
+    }
+
+    /* ─── Header ─── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 24px 32px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: rgba(13,15,18,0.92);
+      backdrop-filter: blur(12px);
+      z-index: 100;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-mark {
+      width: 36px;
+      height: 36px;
+      background: var(--accent);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-mark svg { width: 20px; height: 20px; }
+
+    .logo-text {
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fff;
+    }
+
+    .logo-sub {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      display: block;
+      margin-top: 1px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .period-selector {
+      display: flex;
+      gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 3px;
+    }
+
+    .period-btn {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      padding: 5px 12px;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.05em;
+    }
+
+    .period-btn:hover { color: var(--text); background: var(--border); }
+    .period-btn.active { background: var(--accent); color: #000; font-weight: 700; }
+
+    .refresh-btn {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      padding: 7px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .refresh-btn.spinning svg { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .last-updated {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--text-dim);
+    }
+
+    /* ─── Main layout ─── */
+    main {
+      padding: 32px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* ─── Summary bar ─── */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+
+    .stat-card:nth-child(1)::after { background: var(--accent); }
+    .stat-card:nth-child(2)::after { background: var(--accent2); }
+    .stat-card:nth-child(3)::after { background: var(--accent3); }
+    .stat-card:nth-child(4)::after { background: #a78bfa; }
+
+    .stat-label {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      color: var(--text-dim);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 2.4rem;
+      font-weight: 800;
+      line-height: 1;
+      color: #fff;
+    }
+
+    .stat-sub {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      margin-top: 6px;
+    }
+
+    /* ─── Two-col layout ─── */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 20px;
+      align-items: start;
+    }
+
+    /* ─── Section headings ─── */
+    .section-label {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ─── Chart panel ─── */
+    .chart-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+
+    .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .chart-title {
+      font-weight: 800;
+      font-size: 1rem;
+    }
+
+    .chart-legend {
+      display: flex;
+      gap: 16px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--text-dim);
+    }
+
+    .legend-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+
+    .chart-wrap {
+      height: 240px;
+      position: relative;
+    }
+
+    /* ─── User leaderboard ─── */
+    .users-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    .user-row {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: 32px 1fr auto;
+      gap: 14px;
+      align-items: center;
+      cursor: pointer;
+      transition: border-color 0.15s, transform 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .user-row:hover {
+      border-color: var(--muted);
+      transform: translateX(3px);
+    }
+
+    .user-row.selected {
+      border-color: var(--accent);
+    }
+
+    .user-row.selected::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--accent);
+    }
+
+    .user-rank {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      text-align: center;
+    }
+
+    .rank-1 { color: var(--accent); font-weight: 700; }
+    .rank-2 { color: var(--accent2); }
+    .rank-3 { color: var(--accent3); }
+
+    .user-info { min-width: 0; }
+
+    .user-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .user-meta {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+
+    .user-counts {
+      text-align: right;
+    }
+
+    .user-total {
+      font-family: var(--mono);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .user-breakdown {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    /* ─── Bar track ─── */
+    .user-bar-track {
+      grid-column: 1 / -1;
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+
+    .user-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--accent);
+      transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* ─── Sidebar ─── */
+    .sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+    .user-detail-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+
+    .detail-name {
+      font-weight: 800;
+      font-size: 1.1rem;
+      margin-bottom: 4px;
+    }
+
+    .detail-email {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+      word-break: break-all;
+    }
+
+    .detail-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .detail-stat {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 12px;
+    }
+
+    .detail-stat-label {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .detail-stat-value {
+      font-family: var(--mono);
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #fff;
+      margin-top: 4px;
+    }
+
+    .mini-chart-wrap {
+      height: 120px;
+      position: relative;
+    }
+
+    .mini-chart-label {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    /* ─── Empty / loading ─── */
+    .loading-state, .error-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+      gap: 16px;
+    }
+
+    .loading-dots {
+      display: flex;
+      gap: 8px;
+    }
+
+    .loading-dots span {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 1.2s infinite;
+    }
+
+    .loading-dots span:nth-child(2) { animation-delay: 0.2s; background: var(--accent2); }
+    .loading-dots span:nth-child(3) { animation-delay: 0.4s; background: var(--accent3); }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(0.6); opacity: 0.4; }
+      50% { transform: scale(1); opacity: 1; }
+    }
+
+    .loading-text {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+    }
+
+    .error-icon { font-size: 2rem; }
+    .error-msg {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--accent3);
+      text-align: center;
+      max-width: 400px;
+      line-height: 1.6;
+    }
+
+    .no-uploads {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      text-align: center;
+      padding: 20px;
+    }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 1024px) {
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .summary-grid { grid-template-columns: repeat(2, 1fr); }
+      .sidebar { display: grid; grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 600px) {
+      main { padding: 16px; }
+      header { padding: 16px; flex-wrap: wrap; gap: 12px; }
+      .summary-grid { grid-template-columns: 1fr 1fr; }
+      .sidebar { grid-template-columns: 1fr; }
+      .stat-value { font-size: 1.8rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="7" height="7" rx="1" fill="#000"/>
+        <rect x="11" y="2" width="7" height="7" rx="1" fill="#000" opacity="0.5"/>
+        <rect x="2" y="11" width="7" height="7" rx="1" fill="#000" opacity="0.5"/>
+        <rect x="11" y="11" width="7" height="7" rx="1" fill="#000"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-text">Immich Stats</div>
+      <span class="logo-sub">Upload Dashboard</span>
+    </div>
+  </div>
+
+  <div class="header-right">
+    <div class="period-selector" id="periodSelector">
+      <button class="period-btn" data-days="7">7D</button>
+      <button class="period-btn" data-days="14">14D</button>
+      <button class="period-btn" data-days="30">30D</button>
+    </div>
+
+    <button class="refresh-btn" id="refreshBtn" onclick="loadStats()">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+        <path d="M10.5 6A4.5 4.5 0 1 1 6 1.5V0L8.5 2.5 6 5V3.5A3 3 0 1 0 9 6h1.5z"/>
+      </svg>
+      Refresh
+    </button>
+
+    <div class="last-updated" id="lastUpdated">—</div>
+  </div>
+</header>
+
+<main>
+  <div id="loadingState" class="loading-state">
+    <div class="loading-dots">
+      <span></span><span></span><span></span>
+    </div>
+    <div class="loading-text">Fetching upload data from Immich...</div>
+  </div>
+
+  <div id="errorState" class="error-state" style="display:none">
+    <div class="error-icon">⚠️</div>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <div id="dashboard" style="display:none">
+    <!-- Summary bar -->
+    <div class="summary-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Uploads</div>
+        <div class="stat-value" id="sumTotal">0</div>
+        <div class="stat-sub" id="sumPeriod">Last 7 days</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Photos</div>
+        <div class="stat-value" id="sumImages">0</div>
+        <div class="stat-sub" id="sumAvgDay">0 / day avg</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Videos</div>
+        <div class="stat-value" id="sumVideos">0</div>
+        <div class="stat-sub">&nbsp;</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active Users</div>
+        <div class="stat-value" id="sumActive">0</div>
+        <div class="stat-sub" id="sumTotalUsers">of 0 total</div>
+      </div>
+    </div>
+
+    <div class="dashboard-grid">
+      <!-- Left: chart + leaderboard -->
+      <div>
+        <div class="section-label">Daily activity</div>
+        <div class="chart-panel">
+          <div class="chart-header">
+            <div class="chart-title">Uploads over time</div>
+            <div class="chart-legend">
+              <div class="legend-item">
+                <div class="legend-dot" style="background:var(--accent)"></div>
+                Photos
+              </div>
+              <div class="legend-item">
+                <div class="legend-dot" style="background:var(--accent2)"></div>
+                Videos
+              </div>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="overviewChart"></canvas>
+          </div>
+        </div>
+
+        <div class="section-label" style="margin-top:24px">Leaderboard</div>
+        <div class="users-list" id="usersList"></div>
+      </div>
+
+      <!-- Right: user detail -->
+      <div class="sidebar">
+        <div class="section-label">User detail</div>
+        <div class="user-detail-panel" id="userDetailPanel">
+          <div class="no-uploads" style="color:var(--text-dim);font-family:var(--mono);font-size:0.7rem;">
+            ← Select a user to see their breakdown
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  let currentData = null;
+  let selectedUserId = null;
+  let overviewChart = null;
+  let miniChart = null;
+  let currentDays = 7;
+
+  // ── Period selector ──
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    if (parseInt(btn.dataset.days) === currentDays) btn.classList.add('active');
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentDays = parseInt(btn.dataset.days);
+      loadStats();
+    });
+  });
+
+  // ── Fetch & render ──
+  async function loadStats() {
+    const btn = document.getElementById('refreshBtn');
+    btn.classList.add('spinning');
+
+    document.getElementById('loadingState').style.display = 'flex';
+    document.getElementById('errorState').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'none';
+
+    try {
+      const res = await fetch(`/api/stats?days=${currentDays}`);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      currentData = await res.json();
+      render(currentData);
+    } catch (e) {
+      document.getElementById('errorMsg').textContent = `Failed to load stats: ${e.message}`;
+      document.getElementById('errorState').style.display = 'flex';
+      document.getElementById('loadingState').style.display = 'none';
+    } finally {
+      btn.classList.remove('spinning');
+    }
+  }
+
+  function render(data) {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+
+    // Summary
+    document.getElementById('sumTotal').textContent = data.summary.totalAssets.toLocaleString();
+    document.getElementById('sumImages').textContent = data.summary.totalImages.toLocaleString();
+    document.getElementById('sumVideos').textContent = data.summary.totalVideos.toLocaleString();
+    document.getElementById('sumActive').textContent = data.summary.activeUploaders;
+    document.getElementById('sumPeriod').textContent = `Last ${data.days} days`;
+    document.getElementById('sumTotalUsers').textContent = `of ${data.summary.totalUsers} total`;
+    document.getElementById('sumAvgDay').textContent =
+      `${(data.summary.totalImages / data.days).toFixed(1)} / day avg`;
+
+    const t = new Date(data.generatedAt);
+    document.getElementById('lastUpdated').textContent =
+      `Updated ${t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+    // Overview chart — aggregate all users by day
+    const allDays = data.users[0]?.dailyBreakdown?.map(d => d.date) || [];
+    const imageDailyMap = {};
+    const videoDailyMap = {};
+    allDays.forEach(d => { imageDailyMap[d] = 0; videoDailyMap[d] = 0; });
+
+    data.users.forEach(u => {
+      (u.dailyBreakdown || []).forEach(({ date, count }) => {
+        // We don't have image/video split per day from the current API shape
+        // so we approximate using total ratio
+        const ratio = u.total > 0 ? u.images / u.total : 1;
+        if (imageDailyMap[date] !== undefined) {
+          imageDailyMap[date] += Math.round(count * ratio);
+          videoDailyMap[date] += count - Math.round(count * ratio);
+        }
+      });
+    });
+
+    const labels = allDays.map(d => {
+      const dt = new Date(d + 'T12:00:00');
+      return dt.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+    });
+
+    if (overviewChart) overviewChart.destroy();
+    const ctx = document.getElementById('overviewChart').getContext('2d');
+    overviewChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Photos',
+            data: allDays.map(d => imageDailyMap[d]),
+            backgroundColor: 'rgba(232,255,90,0.8)',
+            borderRadius: 3,
+            borderSkipped: false,
+          },
+          {
+            label: 'Videos',
+            data: allDays.map(d => videoDailyMap[d]),
+            backgroundColor: 'rgba(90,255,218,0.6)',
+            borderRadius: 3,
+            borderSkipped: false,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1e2229',
+            titleColor: '#d8dce8',
+            bodyColor: '#7a8090',
+            borderColor: '#2e3340',
+            borderWidth: 1,
+            titleFont: { family: "'Space Mono', monospace", size: 11 },
+            bodyFont: { family: "'Space Mono', monospace", size: 10 },
+          }
+        },
+        scales: {
+          x: {
+            stacked: true,
+            grid: { color: 'rgba(255,255,255,0.03)' },
+            ticks: {
+              color: '#4a5060',
+              font: { family: "'Space Mono', monospace", size: 9 },
+              maxRotation: 0,
+            },
+            border: { color: '#1e2229' }
+          },
+          y: {
+            stacked: true,
+            grid: { color: 'rgba(255,255,255,0.05)' },
+            ticks: {
+              color: '#4a5060',
+              font: { family: "'Space Mono', monospace", size: 9 },
+              stepSize: 1,
+            },
+            border: { color: '#1e2229' }
+          }
+        }
+      }
+    });
+
+    // Leaderboard
+    const maxTotal = Math.max(...data.users.map(u => u.total), 1);
+    const list = document.getElementById('usersList');
+    list.innerHTML = '';
+
+    if (data.users.length === 0) {
+      list.innerHTML = '<div class="no-uploads">No users found.</div>';
+      return;
+    }
+
+    data.users.forEach((user, i) => {
+      const row = document.createElement('div');
+      row.className = 'user-row' + (user.id === selectedUserId ? ' selected' : '');
+      row.dataset.userId = user.id;
+
+      const rankClass = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '';
+      const pct = ((user.total / maxTotal) * 100).toFixed(1);
+
+      row.innerHTML = `
+        <div class="user-rank ${rankClass}">${i === 0 ? '▲' : i === 1 ? '▲' : i === 2 ? '▲' : '#' + (i + 1)}</div>
+        <div class="user-info">
+          <div class="user-name">${escHtml(user.name)}</div>
+          <div class="user-meta">${escHtml(user.email)}</div>
+        </div>
+        <div class="user-counts">
+          <div class="user-total">${user.total.toLocaleString()}</div>
+          <div class="user-breakdown">${user.images}🖼 ${user.videos}🎬</div>
+        </div>
+        <div class="user-bar-track" style="grid-column:1/-1">
+          <div class="user-bar-fill" style="width:0%" data-pct="${pct}"></div>
+        </div>
+      `;
+
+      row.addEventListener('click', () => selectUser(user));
+      list.appendChild(row);
+    });
+
+    // Animate bars after paint
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.querySelectorAll('.user-bar-fill').forEach(el => {
+          el.style.width = el.dataset.pct + '%';
+        });
+      });
+    });
+
+    // Auto-select top user
+    if (data.users.length > 0) {
+      const topUser = data.users.find(u => u.total > 0) || data.users[0];
+      selectUser(topUser);
+    }
+  }
+
+  function selectUser(user) {
+    selectedUserId = user.id;
+
+    // Update row highlights
+    document.querySelectorAll('.user-row').forEach(r => {
+      r.classList.toggle('selected', r.dataset.userId === user.id);
+    });
+
+    // Render detail panel
+    const panel = document.getElementById('userDetailPanel');
+
+    const days = user.dailyBreakdown || [];
+    const labels = days.map(d => {
+      const dt = new Date(d.date + 'T12:00:00');
+      return dt.toLocaleDateString([], { weekday: 'short', day: 'numeric' });
+    });
+    const counts = days.map(d => d.count);
+
+    const accentColors = ['var(--accent)', 'var(--accent2)', 'var(--accent3)', '#a78bfa', '#fb923c'];
+    const colorIdx = (currentData?.users || []).findIndex(u => u.id === user.id) % accentColors.length;
+    const color = accentColors[Math.max(0, colorIdx)];
+
+    panel.innerHTML = `
+      <div class="detail-name">${escHtml(user.name)}</div>
+      <div class="detail-email">${escHtml(user.email)}</div>
+      <div class="detail-stats">
+        <div class="detail-stat">
+          <div class="detail-stat-label">Photos</div>
+          <div class="detail-stat-value">${user.images.toLocaleString()}</div>
+        </div>
+        <div class="detail-stat">
+          <div class="detail-stat-label">Videos</div>
+          <div class="detail-stat-value">${user.videos.toLocaleString()}</div>
+        </div>
+      </div>
+      <div class="mini-chart-label">Daily uploads</div>
+      <div class="mini-chart-wrap">
+        <canvas id="miniChart"></canvas>
+      </div>
+    `;
+
+    if (miniChart) miniChart.destroy();
+    const mCtx = document.getElementById('miniChart').getContext('2d');
+
+    // Create gradient
+    const grad = mCtx.createLinearGradient(0, 0, 0, 120);
+    grad.addColorStop(0, color.startsWith('var') ? 'rgba(232,255,90,0.4)' : color + '66');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+    miniChart = new Chart(mCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          data: counts,
+          borderColor: color.startsWith('var') ? '#e8ff5a' : color,
+          borderWidth: 2,
+          backgroundColor: grad,
+          pointBackgroundColor: color.startsWith('var') ? '#e8ff5a' : color,
+          pointRadius: 3,
+          tension: 0.3,
+          fill: true,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1e2229',
+            titleColor: '#d8dce8',
+            bodyColor: '#7a8090',
+            borderColor: '#2e3340',
+            borderWidth: 1,
+            titleFont: { family: "'Space Mono', monospace", size: 10 },
+            bodyFont: { family: "'Space Mono', monospace", size: 10 },
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: '#4a5060', font: { family: "'Space Mono', monospace", size: 8 } },
+            border: { color: '#1e2229' }
+          },
+          y: {
+            grid: { color: 'rgba(255,255,255,0.04)' },
+            ticks: {
+              color: '#4a5060',
+              font: { family: "'Space Mono', monospace", size: 8 },
+              stepSize: 1,
+            },
+            border: { color: '#1e2229' }
+          }
+        }
+      }
+    });
+  }
+
+  function escHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // Auto-refresh every 5 minutes
+  setInterval(loadStats, 5 * 60 * 1000);
+
+  // Initial load
+  loadStats();
+</script>
+</body>
+</html>
