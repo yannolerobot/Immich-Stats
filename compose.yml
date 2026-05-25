@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   immich-stats:
-    image: ghcr.io/yourusername/immich-stats:latest  # Replace with your public image if published, or keep 'build: .'
+    image: ghcr.io/yannolerobot/immich-stats:latest
     # build:
     #   context: .
     #   dockerfile: Dockerfile
@@ -24,17 +24,9 @@ services:
       DB_DATABASE_NAME: "${DB_DATABASE_NAME:-immich}"
       DB_USERNAME: "${DB_USERNAME:-postgres}"
       DB_PASSWORD: "${DB_PASSWORD}" # Recommended to pull from .env
-      
+
       PORT: "3000"
+      
+    env_file:
+      - .env
 
-    # Labels for reverse proxy (Traefik) - Commented out so it doesn't break standard setups
-    # labels:
-    #   - "traefik.enable=true"
-    #   - "traefik.http.routers.immich-stats.rule=Host(`immichstats.example.com`)"
-
-# Standardized network section. 
-# Most Immich users run everything on a network named 'immich' or use default bridge.
-# networks:
-#   default:
-#     external: true
-#     name: immich_default
