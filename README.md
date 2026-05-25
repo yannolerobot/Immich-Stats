@@ -37,12 +37,13 @@ Log into your core Immich instance, navigate to **Account Settings** ➔ **API K
 Create a `.env` file in your deployment directory to store your connection keys and database credentials safely:
 
 ```env
+# Immich Stats Configuration
 IMMICH_API_KEY=your_immich_api_key_here
-DB_PASSWORD=your_immich_postgres_password_here
 
-# Optional overrides (Defaults to immich / postgres if left out)
-DB_DATABASE_NAME=immich
-DB_USERNAME=postgres
+# Optional Database Configurations (Change if you customized your Immich setup)
+# DB_DATABASE_NAME=immich
+# DB_USERNAME=postgres
+# DB_PASSWORD=your_immich_db_password_here
 ```
 
 ### 3. Configure `compose.yml`
