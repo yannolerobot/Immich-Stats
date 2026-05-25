@@ -19,7 +19,7 @@
 ## 📸 Preview
 
 <p align="center">
-  <img src="./assets/scrennshotpng" width="100%" alt="Immich Stats Dashboard Preview">
+  <img src="./assets/screenshot.png" width="100%" alt="Immich Stats Dashboard Preview">
 </p>
 
 ---
