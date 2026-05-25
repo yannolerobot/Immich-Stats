@@ -31,8 +31,19 @@
 
 ### 1. Generate an Immich API key
 Log into your core Immich instance, navigate to **Account Settings** ➔ **API Keys**, and generate a new key. *Note: A read-only key is perfectly sufficient.*
+### 2. Configure Your `.env` File
+Create a `.env` file in your deployment directory to store your connection keys and database credentials safely:
 
-### 2. Configure `compose.yml`
+```env
+IMMICH_API_KEY=your_immich_api_key_here
+DB_PASSWORD=your_immich_postgres_password_here
+
+# Optional overrides (Defaults to immich / postgres if left out)
+DB_DATABASE_NAME=immich
+DB_USERNAME=postgres
+```
+
+### 3. Configure `compose.yml`
 Create a `compose.yml` file and drop in the deployment configuration below:
 
 ```yaml
@@ -43,17 +54,33 @@ services:
     image: ghcr.io/yannolerobot/immich-stats:latest
     container_name: immich-stats
     restart: unless-stopped
+    
+    # Expose port (comment out if using a reverse proxy)
     ports:
-      - "3456:3000"  # Map to any port you prefer on your host machine
+      - "3456:3000"
+      
+    env_file:
+      - .env
+      
     environment:
-      IMMICH_URL: "http://immich-server:2283"  # Use internal container URL or [https://immich.yourdomain.tld](https://immich.yourdomain.tld)
-      IMMICH_API_KEY: "your_api_key_here"
+      # Required — point at your Immich instance
+      IMMICH_URL: "http://immich-server:2283"
+      IMMICH_API_KEY: "${IMMICH_API_KEY}"
+                
+      # Point at the Immich postgres container
+      DB_HOSTNAME: "immich_postgres"
+      DB_PORT: "5432"
+      DB_DATABASE_NAME: "${DB_DATABASE_NAME:-immich}"
+      DB_USERNAME: "${DB_USERNAME:-postgres}"
+      DB_PASSWORD: "${DB_PASSWORD:-postgres}" # change in your .env
+
       PORT: "3000"
     
-    # Optional: If Immich runs on a specific internal network, uncomment below to join it
+    # Optional: If Immich runs on a specific internal network, uncomment below to join it, make sure both immich and the postgres container is reachable
     # networks:
     #   - immich_default
 
 # networks:
 #   immich_default:
 #     external: true
+```
